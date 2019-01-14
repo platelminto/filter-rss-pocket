@@ -11,11 +11,11 @@ dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
 
 class Feed:
-    def __init__(self, url, whitelist, filters):
+    def __init__(self, url, whitelist, filters, items):
         self.url = url
         self.whitelist = whitelist
         self.filters = filters
-        self.items = []
+        self.items = items
 
     def set_feed_items(self):
         items = filter_entry_keys(get_feed(self.url).entries)
@@ -57,10 +57,8 @@ def parse_feeds(feed_data):
     feeds = list()
 
     for feed_info in feed_data:
-        feed = Feed(feed_info['url'], feed_info['whitelist'],
-                    feed_info['filters'])
-        feed.set_feed_items()
-        feeds.append(feed)
+        feeds.append(Feed(feed_info['url'], feed_info['whitelist'],
+                          feed_info['filters'], get_feed_items(feed_info['url'])))
 
     return feeds
 
@@ -86,19 +84,37 @@ def get_unseen_items(feeds):  # returns unseen items
         new_items = feed.items.copy()
         if feed.url in seen_ids_dict.keys():
             for item in feed.items:
-                if item['id'] in seen_ids_dict[feed.url]:
+                if (item['id'] in seen_ids_dict[feed.url]) or filter_item(item, feed):
                     new_items.remove(item)
         unseen_items[feed.url] = new_items
 
         if new_items:  # if there are new items, update the db entry for it
+            ids = [item['id'] for item in feed.items]
             feed_seen_table.put_item(
                 Item={
                     'url': feed.url,
-                    'ids': [item['id'] for item in feed.items]
+                    'ids': ids
                 }
             )
 
     return unseen_items
+
+
+def filter_item(item, feed):
+    for key, values in feed.filters.items():
+        if key.lower() in item.keys():
+            #  different feeds have different formats, so make them into a string and see if
+            #  that contains any of the values we're looking for.
+            if any(x in str(item[key.lower()]) for x in values):
+                if feed.whitelist:
+                    return False
+                else:
+                    return True
+
+    if feed.whitelist:
+        return True
+
+    return False
 
 
 def add_items_to_pocket(items):
