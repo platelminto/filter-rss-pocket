@@ -7,7 +7,7 @@ import boto3
 pocket_instance = Pocket(os.environ['POCKET_CONSUMER_KEY'],
                          os.environ['POCKET_ACCESS_TOKEN'])
 important_keys = ['title', 'summary', 'id', 'link', 'tags']
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+dynamodb = boto3.resource('dynamodb')
 
 
 class Feed:
