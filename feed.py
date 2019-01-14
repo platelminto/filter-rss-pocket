@@ -6,16 +6,32 @@ import boto3
 
 pocket_instance = Pocket(os.environ['POCKET_CONSUMER_KEY'],
                          os.environ['POCKET_ACCESS_TOKEN'])
-important_keys = ['title', 'summary', 'id', 'link', 'media_keywords']
+important_keys = ['title', 'summary', 'id', 'link', 'tags']
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
 
 class Feed:
-    def __init__(self, url, whitelist, filter_words, items):
+    def __init__(self, url, whitelist, filters):
         self.url = url
         self.whitelist = whitelist
-        self.filter_words = filter_words  # todo filter words
-        self.items = items
+        self.filters = filters
+        self.items = []
+
+    def set_feed_items(self):
+        items = filter_entry_keys(get_feed(self.url).entries)
+        new_items = list() if self.whitelist else items.copy()
+        for item in items:
+            for key, values in self.filters.items():
+                if key.lower() in item.keys():
+                    #  different feeds have different formats, so make them into a string and see if
+                    #  that contains any of the values we're looking for.
+                    if any(x in str(item[key.lower()]) for x in values):
+                        if self.whitelist:
+                            new_items.append(item)
+                        else:
+                            new_items.remove(item)
+
+        self.items = new_items
 
 
 def get_feed(url):
@@ -41,8 +57,10 @@ def parse_feeds(feed_data):
     feeds = list()
 
     for feed_info in feed_data:
-        feeds.append(Feed(feed_info['url'], feed_info['whitelist'],
-                          feed_info['filter words'], get_feed_items(feed_info['url'])))
+        feed = Feed(feed_info['url'], feed_info['whitelist'],
+                    feed_info['filters'])
+        feed.set_feed_items()
+        feeds.append(feed)
 
     return feeds
 
