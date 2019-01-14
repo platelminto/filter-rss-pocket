@@ -17,22 +17,6 @@ class Feed:
         self.filters = filters
         self.items = items
 
-    def set_feed_items(self):
-        items = filter_entry_keys(get_feed(self.url).entries)
-        new_items = list() if self.whitelist else items.copy()
-        for item in items:
-            for key, values in self.filters.items():
-                if key.lower() in item.keys():
-                    #  different feeds have different formats, so make them into a string and see if
-                    #  that contains any of the values we're looking for.
-                    if any(x in str(item[key.lower()]) for x in values):
-                        if self.whitelist:
-                            new_items.append(item)
-                        else:
-                            new_items.remove(item)
-
-        self.items = new_items
-
 
 def get_feed(url):
     return feedparser.parse(url)
